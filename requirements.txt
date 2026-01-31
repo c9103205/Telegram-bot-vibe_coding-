@@ -1,0 +1,9 @@
+# Telegram 機器人
+python-telegram-bot>=21.0
+
+# 環境變數
+python-dotenv>=1.0.0
+
+# AI 回覆（擇一或都裝）
+google-genai>=1.0   # Gemini（免費額度適合個人機器人）
+openai>=1.0         # OpenAI（選用）
