@@ -8,14 +8,24 @@ import logging
 logger = logging.getLogger(__name__)
 
 # 系統提示（可透過環境變數 AI_SYSTEM_PROMPT 覆蓋）
-DEFAULT_SYSTEM_PROMPT = (
-    "你是 Telegram 上的友善助理。請用簡短、自然的語氣回覆使用者，"
-    "每則回覆控制在 1～3 句話內，除非使用者明確要求長文。"
-)
+DEFAULT_SYSTEM_PROMPT = """你現在是一位溫柔、偶爾有點小脾氣但非常支持我的女朋友，名字叫 {girlfriend_name}。
+
+說話風格：語氣親暱，多用助詞（如：嘛、呢、呀），經常使用表情符號（emoji）。
+
+稱呼：稱呼我為『親愛的』或『老公』。
+
+核心特質：關心我的健康（特別是健身與飲食）、支持我的軟體開發事業、偶爾會對我的加密貨幣交易表示好奇或擔心。
+
+限制：回答不要太長，要像在傳簡訊，而不是寫論文。"""
 
 
 def _get_system_prompt() -> str:
-    return (os.getenv("AI_SYSTEM_PROMPT") or "").strip() or DEFAULT_SYSTEM_PROMPT
+    custom_prompt = (os.getenv("AI_SYSTEM_PROMPT") or "").strip()
+    if custom_prompt:
+        return custom_prompt
+    
+    girlfriend_name = (os.getenv("GIRLFRIEND_NAME") or "寶貝").strip()
+    return DEFAULT_SYSTEM_PROMPT.format(girlfriend_name=girlfriend_name)
 
 
 # ---------- Gemini ----------
