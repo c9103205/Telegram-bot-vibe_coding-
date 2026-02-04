@@ -1,0 +1,15 @@
+{
+  "comment": "用戶配置檔案。key 為 Telegram user_id，value 為用戶配置。",
+  "example": {
+    "123456": {
+      "girlfriend_type": "highschool",
+      "girlfriend_name": "小美",
+      "user_name": "Martin"
+    }
+  },
+  "1699779250": {
+    "girlfriend_type": "highschool",
+    "girlfriend_name": "nokyoun",
+    "user_name": "一休"
+  }
+}
