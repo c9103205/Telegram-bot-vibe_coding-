@@ -5,28 +5,80 @@ import asyncio
 import os
 import logging
 from io import BytesIO
-from PIL import Image
 import json
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# 三種女友個性定義 (與 ai_reply.py 保持一致)
+# 生成圖片時的人物一致性與風格（每張圖都套用）
+IMAGE_CHARACTER_TRAITS = (
+    "自拍感強烈，像真人自拍照片，"
+    "人物一致：台灣年輕女性，黑色長直髮，"
+    "構圖與光線像手機自拍、臉部特寫或半身。"
+)
+
+# 三種女友個性定義 (與 ai_reply.py 保持一致)，已含自拍感與人物設定
 GIRLFRIEND_PERSONALITIES = {
     "highschool": {
         "name": "溫柔可愛的女高中生",
-        "prompt_prefix": "一個台灣女生，穿著高中制服，非常可愛，以第一人稱自拍的角度，臉部特寫" # For image generation
+        "prompt_prefix": (
+            f"{IMAGE_CHARACTER_TRAITS} "
+            "一個台灣年輕女性，黑色長直髮，穿著高中制服，非常可愛，第一人稱自拍角度，臉部特寫"
+        ),
     },
     "mature": {
         "name": "成熟姊姊",
-        "prompt_prefix": "一個台灣女生，成熟，性感，以第一人稱自拍的角度，臉部特寫" # For image generation
+        "prompt_prefix": (
+            f"{IMAGE_CHARACTER_TRAITS} "
+            "一個台灣年輕女性，黑色長直髮，成熟性感，第一人稱自拍角度，臉部特寫"
+        ),
     },
     "spicy": {
         "name": "咸濕姐姐",
-        "prompt_prefix": "一個台灣女生，性感，大膽，穿著清涼，以第一人稱自拍的角度，臉部特寫" # For image generation
-    }
+        "prompt_prefix": (
+            f"{IMAGE_CHARACTER_TRAITS} "
+            "一個台灣年輕女性，黑色長直髮，性感大膽，穿著清涼，第一人稱自拍角度，臉部特寫"
+        ),
+    },
 }
+
+# 約 100 個關鍵字：使用者訊息包含任一個即觸發拍照（生成圖片）
+IMAGE_TRIGGER_KEYWORDS = frozenset({
+    "吃飯", "吃早餐", "吃午餐", "吃晚餐", "吃宵夜", "煮飯", "做菜", "喝咖啡", "喝茶", "喝飲料",
+    "睡覺", "起床", "早安", "晚安", "午安", "賴床", "夢到你",
+    "逛街", "購物", "買東西", "看電影", "電影", "唱歌", "跳舞", "聽音樂", "運動", "跑步", "健身", "游泳", "打球",
+    "洗澡", "泡澡", "自拍", "拍照", "拍我", "想看你", "看看你", "給我看",
+    "散步", "旅行", "出去玩", "約會", "見面", "等你",
+    "上班", "下班", "上課", "下課", "讀書", "寫作業", "加班", "開會",
+    "下雨", "晴天", "天氣", "好冷", "好熱", "今天",
+    "心情好", "心情不好", "開心", "難過", "想你", "想你了", "抱抱", "親親", "愛你", "喜歡你",
+    "生日", "節日", "聖誕節", "情人節", "過年", "放假", "週末",
+    "早餐", "午餐", "晚餐", "宵夜", "點心", "甜點", "蛋糕", "冰淇淋",
+    "咖啡廳", "餐廳", "家裡", "房間", "客廳", "廚房", "陽台",
+    "貓", "狗", "寵物", "狗狗", "貓咪",
+    "化妝", "打扮", "換衣服", "出門", "回家",
+    "看書", "追劇", "打遊戲", "玩遊戲", "滑手機",
+    "早安呀", "晚安呀", "在幹嘛", "在做什麼", "想我嗎",
+    "好無聊", "好累", "好餓", "好睏", "好渴",
+    "謝謝", "辛苦了", "加油", "掰掰", "再見",
+})
+
+def get_trigger_keyword(message: str) -> str | None:
+    """
+    若訊息包含任一觸發關鍵字，回傳該關鍵字（用於觸發拍照）；否則回傳 None。
+    先完全符合，再依關鍵字長度由長到短匹配「包含」。
+    """
+    if not message or not message.strip():
+        return None
+    text = message.strip()
+    if text in IMAGE_TRIGGER_KEYWORDS:
+        return text
+    for keyword in sorted(IMAGE_TRIGGER_KEYWORDS, key=len, reverse=True):
+        if keyword in text:
+            return keyword
+    return None
+
 
 def _load_user_config(user_id: int) -> dict:
     """從 users_config.json 讀取特定用戶配置。"""
@@ -48,10 +100,13 @@ def _load_user_config(user_id: int) -> dict:
         return default_config
 
 def _get_image_gen_prompt(user_id: int = None, keyword: str = "") -> str:
-    """根據用戶 ID 和女友類型生成圖片生成提示。"""
-    # 確保有 user_id 才能獲取個性化設定
+    """根據用戶 ID 和女友類型生成圖片生成提示。強調自拍感、台灣年輕女性、黑色長直髮、人物一致。"""
+    base_no_user = (
+        f"{IMAGE_CHARACTER_TRAITS} "
+        "一個台灣年輕女性，黑色長直髮，第一人稱自拍角度，臉部特寫"
+    )
     if not user_id:
-        return "一個台灣女生，以第一人稱自拍的角度" + (f"，背景是{keyword}" if keyword else "")
+        return base_no_user + (f"，情境或背景：{keyword}" if keyword else "")
     
     user_config = _load_user_config(user_id)
     girlfriend_type = user_config.get("girlfriend_type", "highschool")
@@ -60,10 +115,10 @@ def _get_image_gen_prompt(user_id: int = None, keyword: str = "") -> str:
         girlfriend_type = "highschool"
     
     personality = GIRLFRIEND_PERSONALITIES[girlfriend_type]
-    prompt_prefix = personality.get("prompt_prefix", "一個台灣女生，以第一人稱自拍的角度")
+    prompt_prefix = personality.get("prompt_prefix", base_no_user)
     
     if keyword:
-        return f"{prompt_prefix}，背景是{keyword}"
+        return f"{prompt_prefix}，情境或背景：{keyword}"
     return prompt_prefix
 
 # ---------- Gemini Image Generation ----------
@@ -119,6 +174,7 @@ def _gemini_generate_image_sync(
                     pass
         
         if image_bytes:
+            from PIL import Image
             logger.info(f"Gemini 圖片生成成功，圖片大小: {len(image_bytes)} bytes")
             img = Image.open(BytesIO(image_bytes))
             output_buffer = BytesIO()
@@ -215,7 +271,7 @@ async def generate_image_by_keyword(
                     response.raise_for_status() # 檢查 HTTP 錯誤
                     image_bytes = response.content
                     logger.info(f"DALL-E 圖片下載成功，大小: {len(image_bytes)} bytes")
-                    # 確保是 JPEG
+                    from PIL import Image
                     img = Image.open(BytesIO(image_bytes))
                     output_buffer = BytesIO()
                     img.save(output_buffer, format="JPEG")

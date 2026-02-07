@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 from logic import get_reply
 from ai_reply import get_ai_reply, GIRLFRIEND_PERSONALITIES, save_user_config, _load_user_config
-from ai_image_gen import generate_image_by_keyword, IMAGE_GEN_FALLBACK_MSG
+from ai_image_gen import generate_image_by_keyword, get_trigger_keyword, IMAGE_GEN_FALLBACK_MSG
 
 # 對話狀態定義
 CHOOSING_GIRLFRIEND = 1
@@ -217,18 +217,45 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/reset - 重新選擇女友和姓名\n"
         "/imagine <文字> - 生成圖片\n"
         "/help - 顯示此訊息\n\n"
-        "傳送任意訊息給我，我會用 AI 回覆你～ 💕"
+        "傳送「吃飯」「睡覺」「自拍」「想你了」等約 100 個關鍵字會自動觸發拍照～ 📷\n"
+        "其他訊息我會用 AI 回覆你～ 💕"
     )
 
 
 async def auto_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """對所有文字訊息自動回覆：優先 AI，失敗或未設定則用關鍵字回覆。"""
+    """對所有文字訊息：若為觸發關鍵字則拍照，否則 AI 或關鍵字回覆。"""
     if not update.message:
         logger.warning("auto_reply: update.message 為空，略過")
         return
     
     user_id = update.effective_user.id
     text = update.message.text or ""
+    
+    # 約 100 個關鍵字觸發拍照（例如：吃飯、睡覺、自拍、想你了）
+    trigger = get_trigger_keyword(text)
+    if trigger is not None:
+        try:
+            # 先送 AI 文字回覆，更像真人（例如：我也好想你～）
+            ai_reply = await get_ai_reply(text, user_id)
+            if ai_reply is None:
+                ai_reply = get_reply(text)
+            await update.message.reply_text(ai_reply)
+            # 再說正在拍、送圖、拍好了
+            await update.message.reply_text("鼻鼻我拍照給你看~~~")
+            image_bytes = await generate_image_by_keyword(trigger, user_id)
+            if image_bytes:
+                await update.message.reply_photo(photo=image_bytes)
+                await update.message.reply_text("拍好了～ 💕")
+                logger.info("關鍵字觸發拍照 用戶=%s 關鍵字=%s", user_id, trigger)
+            else:
+                await update.message.reply_text(IMAGE_GEN_FALLBACK_MSG)
+        except Exception as e:
+            logger.exception("關鍵字觸發拍照錯誤: %s", e)
+            try:
+                await update.message.reply_text(IMAGE_GEN_FALLBACK_MSG)
+            except Exception:
+                pass
+        return
     
     try:
         reply = await get_ai_reply(text, user_id)
