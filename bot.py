@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 from logic import get_reply
 from ai_reply import get_ai_reply, GIRLFRIEND_PERSONALITIES, save_user_config, _load_user_config
+from ai_image_gen import generate_image_by_keyword, IMAGE_GEN_FALLBACK_MSG
 
 # 對話狀態定義
 CHOOSING_GIRLFRIEND = 1
@@ -214,6 +215,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "可用的指令：\n"
         "/start - 開始或查看當前配置\n"
         "/reset - 重新選擇女友和姓名\n"
+        "/imagine <文字> - 生成圖片\n"
         "/help - 顯示此訊息\n\n"
         "傳送任意訊息給我，我會用 AI 回覆你～ 💕"
     )
@@ -240,6 +242,34 @@ async def auto_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_text("回覆時發生錯誤，請稍後再試。")
         except Exception:
             pass
+
+
+async def imagine_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """處理 /imagine 指令，生成圖片。"""
+    if not update.message:
+        logger.warning("imagine_command: update.message 為空，略過")
+        return
+    
+    user_id = update.effective_user.id
+    prompt_text = " ".join(context.args) if context.args else ""
+    
+    if not prompt_text:
+        await update.message.reply_text("請在 /imagine 後面加上圖片描述，例如：/imagine 一隻可愛的貓咪")
+        return
+
+    await update.message.reply_text(f"正在為您生成圖片：『{prompt_text}』，請稍候... ✨")
+    logger.info(f"用戶 {user_id} 請求生成圖片，prompt: {prompt_text}")
+
+    try:
+        image_bytes = await generate_image_by_keyword(prompt_text, user_id)
+        if image_bytes:
+            await update.message.reply_photo(photo=image_bytes)
+            logger.info(f"成功為用戶 {user_id} 生成圖片")
+        else:
+            await update.message.reply_text(IMAGE_GEN_FALLBACK_MSG)
+    except Exception as e:
+        logger.exception(f"圖片生成指令 /imagine 發生錯誤: {e}")
+        await update.message.reply_text(IMAGE_GEN_FALLBACK_MSG)
 
 
 def run_bot(token: str) -> None:
@@ -271,6 +301,7 @@ def run_bot(token: str) -> None:
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("reset", reset))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("imagine", imagine_command)) # 新增圖片生成指令
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, auto_reply)
     )

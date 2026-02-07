@@ -29,13 +29,15 @@
    pip install -r requirements.txt
    ```
 
-3. 設定 Token：
+3. 設定 Token 與 AI API Key：
 
    ```bash
    cp .env.example .env
    ```
 
-   在 Cursor 中開啟 `.env` 並編輯（`Cmd+P` 或 `Ctrl+P` 輸入 `.env`），將 `TELEGRAM_BOT_TOKEN=` 改為你的 Token。
+   在 Cursor 中開啟 `.env` 並編輯（`Cmd+P` 或 `Ctrl+P` 輸入 `.env`），
+   至少填入 `TELEGRAM_BOT_TOKEN=`，若要使用 AI 功能，也需填入 `GEMINI_API_KEY=` 或 `OPENAI_API_KEY=`。
+   圖片生成功能可選填 `GEMINI_IMAGE_MODEL=` 和 `AI_IMAGE_PROVIDER=`。
 
 4. 啟動機器人：
 
@@ -65,23 +67,27 @@ python check_telegram.py
 
 ```
 .
-├── main.py             # 程式進入點，讀取 Token 並啟動 bot（無 telegram 時改本地模擬）
-├── bot.py              # Telegram 機器人邏輯：指令、自動回覆
-├── logic.py            # 回覆邏輯（關鍵字對應、預設回覆），與 Telegram 無關
+├── ai_image_gen.py     # 圖片生成邏輯（Gemini / DALL-E）
+├── ai_reply_image.py   # 圖片分析邏輯（Gemini Vision / OpenAI Vision）
 ├── check_telegram.py   # 診斷「無法連接 Telegram」的腳本
-├── requirements.txt    # 依賴：python-telegram-bot, python-dotenv
-├── .env.example        # 環境變數範例（請複製為 .env 並填入 Token）
-├── .env                # 你的 Token（勿提交到 Git）
-├── README.md
+├── debug_gemini.py     # 診斷「Gemini API 失效」的腳本
 ├── DEVELOPMENT.md     # 本地開發指南
-└── TROUBLESHOOTING.md  # 無法連接 Telegram 原因分析與排除
+├── DEPLOYMENT.md       # 部署到一般主機指南
+├── DEPLOYMENT_GOOGLE_CLOUD.md # 部署到 Google Cloud 指南
+├── logic.py            # 純邏輯（關鍵字對應、預設回覆）
+├── main.py             # 程式進入點（啟動 bot 或本地模擬）
+├── README.md
+├── requirements.txt    # 依賴套件
+└── TROUBLESHOOTING.md  # 故障排除指南
 ```
 
 ## 指令
 
-- `/start`：歡迎訊息
-- `/help`：使用說明
-- 任意文字：觸發自動回覆（依關鍵字或預設回覆）
+- `/start`：開始或查看當前配置
+- `/reset`：重新選擇女友和姓名
+- `/imagine <文字>`：生成圖片（由 Gemini 或 DALL-E 提供）
+- `/help`：顯示此訊息
+- 傳送任意訊息：用 AI（Gemini）回覆
 
 ## 本地開發 vs 部署
 

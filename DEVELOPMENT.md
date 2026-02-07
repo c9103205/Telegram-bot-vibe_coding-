@@ -134,6 +134,84 @@ GEMINI_MODEL=gemini-2.0-flash
 
 ---
 
+### 可選：指定模型
+
+預設使用 `gemini-2.0-flash`。若想換模型，在 `.env` 加一行：
+
+```
+GEMINI_MODEL=gemini-2.0-flash
+```
+
+可改成其他 [Gemini 模型名稱](https://ai.google.dev/gemini-api/docs/models)（例如 `gemini-1.5-flash`）。
+
+### 常見問題
+
+**Q: 還是關鍵字回覆，沒有 AI？**
+- 確認 `.env` 有 `GEMINI_API_KEY=...` 且沒有多餘空格、引號
+- 確認有執行 `pip install google-genai`，且用**同一個** Python 跑 `main.py`
+- 看終端日誌是否有 `Gemini API 錯誤`，依錯誤訊息排查
+
+**Q: 免費額度夠嗎？**
+- Google 提供免費額度（每分鐘請求數、每日請求數有限），個人小機器人通常夠用；詳見 [Gemini API 定價與配額](https://ai.google.dev/pricing)。
+
+---
+
+## 本地圖片生成設定（`/imagine` 指令）
+
+專案已支援 **Gemini** 和 **OpenAI DALL-E** 兩種圖片生成服務。  
+指令：`/imagine <圖片描述>`，例如：`/imagine 一隻可愛的貓咪`
+
+### 1. 安裝套件
+
+確保 `requirements.txt` 中的 `Pillow` 和 `httpx` 已安裝：
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. 設定 API Key
+
+至少設定以下其中一項，或兩項都設（若都設可透過 `AI_IMAGE_PROVIDER` 選擇優先使用哪個）：
+
+- **Gemini 圖片生成**：
+  - 在 `.env` 設定 `GEMINI_API_KEY=你的Gemini_API_金鑰`（和 AI 回覆的金鑰相同）
+  - 可選：在 `.env` 設定 `GEMINI_IMAGE_MODEL=gemini-2.5-flash-image`（預設已是此模型）
+
+- **OpenAI DALL-E 圖片生成**：
+  - 在 `.env` 設定 `OPENAI_API_KEY=你的OpenAI_API_Key`（和 AI 回覆的金鑰相同）
+  - 可選：在 `.env` 設定 `OPENAI_DALLE_MODEL=dall-e-3`（預設已是此模型）
+
+### 3. 選擇圖片提供者（可選）
+
+若同時設定了 Gemini 和 OpenAI 的金鑰，預設會**優先使用 Gemini**。  
+你可以在 `.env` 設定 `AI_IMAGE_PROVIDER` 來指定：
+
+```
+AI_IMAGE_PROVIDER=gemini   # 優先使用 Gemini
+# 或
+AI_IMAGE_PROVIDER=openai   # 優先使用 OpenAI DALL-E
+```
+
+### 4. 啟動機器人測試
+
+```bash
+pip install -r requirements.txt # 確保裝了 Pillow 和 httpx
+python main.py
+```
+
+在 Telegram 裡，傳送 `/imagine 一隻可愛的貓咪` 測試。  
+若圖片生成失敗，會回傳 `目前暫時無法生成圖片，請稍後再試。`
+
+### 5. 常見問題
+
+**Q: 圖片生成失敗或回傳預設訊息？**  
+- 確認對應的 API Key 已設定且正確  
+- 確認 `Pillow` 和 `httpx` 已安裝 (`pip install -r requirements.txt`)  
+- 看終端日誌是否有 `Gemini 圖片生成錯誤` 或 `OpenAI DALL-E 圖片生成錯誤`，依錯誤訊息排查  
+- 檢查圖片描述是否過於複雜或敏感，導致 API 拒絕生成
+
+---
+
 ### 常見問題
 
 **Q: 機器人沒有回應？**
@@ -156,3 +234,5 @@ GEMINI_MODEL=gemini-2.0-flash
 - 處理圖片、檔案等其他類型的訊息
 - 整合資料庫儲存對話記錄
 - 準備部署到雲端伺服器
+
+---
